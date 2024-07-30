@@ -77,8 +77,8 @@ impl Communicator {
     ///
     /// # Arguments
     ///
-    /// * `from_identifier` - identifier of device from which is this broadcast received
-    /// * `message` - vector of length (threshold - 1) containing messages for other parties, sending party is excluded
+    /// * `from_identifier` - identifier of the sender device
+    /// * `messages` - vector of messages corresponding to each share of the sender
     pub fn receive_messages(
         &mut self,
         from_identifier: &[u8],
