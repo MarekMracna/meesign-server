@@ -468,7 +468,7 @@ mod tests {
                 if active_indices.contains(&idx) {
                     vec![vec![]]
                 } else {
-                    vec![]
+                    Vec::new() as Vec<Vec<u8>>
                 }
             );
         }
