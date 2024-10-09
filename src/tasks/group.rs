@@ -9,8 +9,9 @@ use crate::protocols::Protocol;
 use crate::tasks::{Task, TaskResult, TaskStatus};
 use crate::{get_timestamp, utils};
 use log::{info, warn};
-use meesign_crypto::proto::{ClientMessage, Message as _};
+use meesign_crypto::proto::{ClientMessage, Message as _, ServerMessage, SignedMessage};
 use prost::Message as _;
+use std::collections::HashMap;
 use std::io::Read;
 use std::process::{Command, Stdio};
 use tonic::codegen::Arc;
@@ -27,6 +28,7 @@ pub struct GroupTask {
     last_update: u64,
     attempts: u32,
     note: Option<String>,
+    certificates_sent: bool,
 }
 
 impl GroupTask {
@@ -94,6 +96,7 @@ impl GroupTask {
             last_update: get_timestamp(),
             attempts: 0,
             note: note.to_owned(),
+            certificates_sent: false,
         })
     }
 
@@ -114,7 +117,8 @@ impl GroupTask {
         let identifier = identifier.unwrap();
         // TODO
         let certificate = if self.protocol.get_type() == ProtocolType::Gg18 {
-            Some(issue_certificate(&self.name, &identifier))
+            let signed_pub_key = SignedMessage::decode(identifier.as_slice()).unwrap();
+            Some(issue_certificate(&self.name, &signed_pub_key.message))
         } else {
             None
         };
@@ -143,13 +147,40 @@ impl GroupTask {
     }
 
     fn next_round(&mut self) {
-        if self.protocol.round() == 0 {
+        if !self.certificates_sent {
+            self.send_certificates();
+        } else if self.protocol.round() == 0 {
             self.start_task();
         } else if self.protocol.round() < self.protocol.last_round() {
             self.advance_task()
         } else {
             self.finalize_task()
         }
+    }
+
+    fn send_certificates(&mut self) {
+        self.communicator.set_active_devices();
+
+        let certs: HashMap<u32, Vec<u8>> = self
+            .devices
+            .iter()
+            .flat_map(|dev| {
+                let cert = dev.certificate().to_vec();
+                self.communicator
+                    .identifier_to_indices(dev.identifier())
+                    .into_iter()
+                    .zip(std::iter::repeat(cert))
+            })
+            .collect();
+        let certs = ServerMessage {
+            broadcasts: certs,
+            unicasts: HashMap::new(),
+            protocol_type: self.protocol.get_type().into(),
+        }
+        .encode_to_vec();
+
+        self.communicator.send_all(|_| certs.clone());
+        self.certificates_sent = true;
     }
 }
 
@@ -159,10 +190,10 @@ impl Task for GroupTask {
             Some(Err(e)) => TaskStatus::Failed(e.clone()),
             Some(Ok(_)) => TaskStatus::Finished,
             None => {
-                if self.protocol.round() == 0 {
+                if self.protocol.round() == 0 && !self.certificates_sent {
                     TaskStatus::Created
                 } else {
-                    TaskStatus::Running(self.protocol.round())
+                    TaskStatus::Running(self.protocol.round() + 1)
                 }
             }
         }
@@ -202,6 +233,12 @@ impl Task for GroupTask {
 
         if !self.waiting_for(device_id) {
             return Err("Wasn't waiting for a message from this ID.".to_string());
+        }
+
+        if self.protocol.round() == 0 {
+            assert_eq!(self.certificates_sent, true);
+            self.next_round();
+            return Ok(true);
         }
 
         let messages = data
@@ -258,7 +295,7 @@ impl Task for GroupTask {
     }
 
     fn waiting_for(&self, device: &[u8]) -> bool {
-        if self.protocol.round() == 0 {
+        if !self.certificates_sent && self.protocol.round() == 0 {
             return !self.communicator.device_decided(device);
         } else if self.protocol.round() >= self.protocol.last_round() {
             return !self.communicator.device_acknowledged(device);
