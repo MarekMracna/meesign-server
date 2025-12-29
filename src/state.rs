@@ -1,5 +1,5 @@
 use dashmap::DashMap;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -412,9 +412,12 @@ impl State {
     ) -> Result<(), Error> {
         let task_entry = &mut *self.task_store.get_task_mut(task_id).await?;
         let Task::Voting(task) = task_entry else {
-            return Err(Error::GeneralProtocolError(
-                "Cannot decide non-voting task".into(),
-            ));
+            debug!(
+                "Decision from non-running task_id={} device_id={}",
+                utils::hextrunc(task_id.as_bytes()),
+                utils::hextrunc(device_id)
+            );
+            return Ok(());
         };
         self.set_task_last_update(task_id);
         let decision_update = task.decide(device_id, accept).await?;
@@ -424,7 +427,7 @@ impl State {
         match decision_update {
             DecisionUpdate::Undecided => {}
             DecisionUpdate::Accepted => {
-                log::info!(
+                info!(
                     "Task approved task_id={}",
                     utils::hextrunc(task_id.as_bytes())
                 );
@@ -461,7 +464,7 @@ impl State {
                 }
             }
             DecisionUpdate::Declined(task) => {
-                log::info!(
+                info!(
                     "Task declined task_id={}",
                     utils::hextrunc(task_id.as_bytes())
                 );
