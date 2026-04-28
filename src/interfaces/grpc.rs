@@ -24,6 +24,7 @@ use crate::{proto as msg, utils, CA_CERT, CA_KEY};
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use meesign_crypto::proto::{ClientMessage, Message as _};
 use serde::{Deserialize, Serialize};
+use std::future::Future;
 use std::pin::Pin;
 use tower_http::cors::CorsLayer;
 
@@ -618,7 +619,12 @@ pub fn cert_to_id(cert: impl AsRef<[u8]>) -> Vec<u8> {
     sha2::Sha256::digest(cert).to_vec()
 }
 
-pub async fn run_grpc(state: Arc<State>, addr: &str, port: u16) -> Result<(), String> {
+pub async fn run_grpc(
+    state: Arc<State>,
+    addr: &str,
+    port: u16,
+    shutdown_signal: impl Future<Output = ()>,
+) -> Result<(), String> {
     let addr = format!("{}:{}", addr, port)
         .parse()
         .map_err(|_| String::from("Unable to parse server address"))?;
@@ -655,7 +661,7 @@ pub async fn run_grpc(state: Arc<State>, addr: &str, port: u16) -> Result<(), St
         .map_err(|_| "Unable to setup TLS for gRPC server")?
         .layer(cors)
         .add_service(grpc_web_service)
-        .serve(addr)
+        .serve_with_shutdown(addr, shutdown_signal)
         .await
         .map_err(|_| String::from("Unable to run gRPC server"))?;
 

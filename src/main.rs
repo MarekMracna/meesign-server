@@ -10,7 +10,7 @@ use persistence::PostgresRepository;
 
 use crate::cached_task_store::CachedTaskStore;
 use crate::state::State;
-use tokio::try_join;
+use tokio::signal::unix::{signal, SignalKind};
 use tonic::codegen::Arc;
 
 mod cached_task_store;
@@ -248,27 +248,27 @@ async fn main() -> Result<(), String> {
         .expect("Couldn't initialize State");
     let state = Arc::new(state);
 
-    tokio::spawn(async move {
-        use tokio::signal;
-        signal::ctrl_c().await.expect("failed to listen for ctrl_c");
-        println!("Received Ctrl+C, shutting down.");
-        flush_coverage();
-        std::process::exit(0);
-    });
+    let timer = tokio::spawn(interfaces::timer::run_timer(state.clone()));
 
-    let grpc = interfaces::grpc::run_grpc(state.clone(), &args.addr, args.port);
-    let timer = interfaces::timer::run_timer(state);
+    interfaces::grpc::run_grpc(state, &args.addr, args.port, shutdown_signal()).await?;
 
-    try_join!(grpc, timer).map(|_| ())
+    // NOTE: Kill the timer after the server shuts down
+    timer.abort();
+
+    Ok(())
 }
 
-extern "C" {
-    fn __llvm_profile_write_file() -> i32;
-}
+async fn shutdown_signal() {
+    let mut sigterm = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
+    let mut sigint = signal(SignalKind::interrupt()).expect("failed to install SIGINT handler");
 
-fn flush_coverage() {
-    unsafe {
-        __llvm_profile_write_file();
+    tokio::select! {
+        _ = sigterm.recv() => {
+            eprintln!("SIGTERM received");
+        }
+        _ = sigint.recv() => {
+            eprintln!("SIGINT received");
+        }
     }
 }
 
@@ -276,7 +276,7 @@ fn flush_coverage() {
 mod cli {
     use crate::proto::KeyType;
     use crate::proto::MeeSignClient;
-    use crate::{Args};
+    use crate::Args;
     use clap::Subcommand;
     use openssl::x509::X509;
     use std::str::FromStr;
