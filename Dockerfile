@@ -19,7 +19,11 @@ RUN curl -LO "https://github.com/protocolbuffers/protobuf/releases/download/v${P
     protoc --version
 RUN sudo ln -s /usr/bin/musl-gcc /usr/bin/x86_64-linux-musl-gcc
 ADD --chown=rust:rust . .
-RUN cargo build --release --target x86_64-unknown-linux-musl
+ARG ENABLE_COVERAGE=0
+RUN if [ "$ENABLE_COVERAGE" = "1" ]; then \
+        export RUSTFLAGS="-C instrument-coverage"; \
+    fi; \
+    cargo build --release --target x86_64-unknown-linux-musl
 
 
 # Use a clean container to run the binary

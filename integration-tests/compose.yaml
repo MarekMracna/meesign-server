@@ -10,11 +10,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        ENABLE_COVERAGE: 1
     env_file: ./integration-tests/.env
+    environment:
+      - LLVM_PROFILE_FILE=/coverage/%p-%m.profraw
+    stop_signal: SIGTERM
     networks:
       - test-meesign-network
     volumes:
       - ./integration-tests/keys:/meesign/keys:ro
+      - ./coverage:/coverage:rw
 
   test-client:
     build:
