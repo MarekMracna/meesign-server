@@ -21,6 +21,13 @@ services:
     volumes:
       - ./integration-tests/keys:/meesign/keys:ro
       - ./coverage:/coverage:rw
+    healthcheck:
+      # TODO The healthcheck performance is dependent on the lifetime of the
+      #      application. With more devices it could get slower.
+      test: [ "CMD-SHELL", "LLVM_PROFILE_FILE=/dev/null meesign-server get-devices"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
 
   test-client:
     build:
