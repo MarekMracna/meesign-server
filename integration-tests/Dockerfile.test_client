@@ -1,8 +1,7 @@
 FROM dart:3.9.3 AS build
 
 WORKDIR /app
-RUN apt update --yes
-RUN apt install --yes \
+RUN apt update --yes && apt install --yes \
     sqlite3 \
     poppler-utils \
     protobuf-compiler \
