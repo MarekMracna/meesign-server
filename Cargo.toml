@@ -12,6 +12,7 @@ tokio = { version = "1.33", features = [
     "rt-multi-thread",
     "time",
     "fs",
+    "signal",
 ] }
 tokio-stream = "0.1.14"
 uuid = { version = "1.4.1", features = ["v4", "fast-rng", "serde"] }

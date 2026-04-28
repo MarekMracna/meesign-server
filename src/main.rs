@@ -249,10 +249,28 @@ async fn main() -> Result<(), String> {
     // TODO: remove mutex when DB done
     let state = Arc::new(state);
 
+    tokio::spawn(async move {
+        use tokio::signal;
+        signal::ctrl_c().await.expect("failed to listen for ctrl_c");
+        println!("Received Ctrl+C, shutting down.");
+        flush_coverage();
+        std::process::exit(0);
+    });
+
     let grpc = interfaces::grpc::run_grpc(state.clone(), &args.addr, args.port);
     let timer = interfaces::timer::run_timer(state);
 
     try_join!(grpc, timer).map(|_| ())
+}
+
+extern "C" {
+    fn __llvm_profile_write_file() -> i32;
+}
+
+fn flush_coverage() {
+    unsafe {
+        __llvm_profile_write_file();
+    }
 }
 
 #[cfg(feature = "cli")]
