@@ -1,9 +1,7 @@
 use crate::error::Error;
 use crate::tasks::{Task, VotingTask};
 use async_trait::async_trait;
-use std::future::Future;
 use std::ops::{Deref, DerefMut};
-use std::pin::Pin;
 use uuid::Uuid;
 
 #[async_trait]
@@ -28,6 +26,10 @@ pub trait TaskStore {
 
 #[cfg(test)]
 use mockall::mock;
+#[cfg(test)]
+use std::future::Future;
+#[cfg(test)]
+use std::pin::Pin;
 
 #[cfg(test)]
 mock! {
