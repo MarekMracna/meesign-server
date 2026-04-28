@@ -246,7 +246,6 @@ async fn main() -> Result<(), String> {
     let state = State::restore(repo, task_store)
         .await
         .expect("Couldn't initialize State");
-    // TODO: remove mutex when DB done
     let state = Arc::new(state);
 
     tokio::spawn(async move {
