@@ -1,4 +1,4 @@
-name: meesing-integration-tests
+name: meesign-integration-tests
 
 services:
   db:

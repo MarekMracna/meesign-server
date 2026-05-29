@@ -11,7 +11,7 @@ LLVM_PROFILE_FILE="coverage/unit_test_%m_%p.profraw"                            
 # Run instrumented E2E tests
 ./run_integration_tests.sh
 docker cp                                                                       \
-       meesing-integration-tests-meesign-server-1:/usr/local/bin/meesign-server \
+       meesign-integration-tests-meesign-server-1:/usr/local/bin/meesign-server \
        coverage/meesign-server
 ./run_integration_tests.sh down
 
