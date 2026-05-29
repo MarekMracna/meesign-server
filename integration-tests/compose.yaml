@@ -14,7 +14,7 @@ services:
         ENABLE_COVERAGE: 1
     env_file: ./integration-tests/.env
     environment:
-      - LLVM_PROFILE_FILE=/coverage/%p-%m.profraw
+      - LLVM_PROFILE_FILE=/coverage/e2e_test_%p_%m.profraw
     stop_signal: SIGTERM
     networks:
       - test-meesign-network
