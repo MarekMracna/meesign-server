@@ -2,6 +2,8 @@
 
 # Prepare folder structure
 mkdir -p coverage/reports
+# NOTE: Needed to allow writing from volume-mapped dir in container in CI
+chmod 777 coverage
 
 # Run instrumented unit tests
 RUSTFLAGS="-C instrument-coverage"                                              \
@@ -12,7 +14,7 @@ LLVM_PROFILE_FILE="coverage/unit_test_%m_%p.profraw"                            
 ./run_integration_tests.sh
 docker cp                                                                       \
        meesign-integration-tests-meesign-server-1:/usr/local/bin/meesign-server \
-       coverage/meesign-server
+       ./coverage/meesign-server
 ./run_integration_tests.sh down
 
 # Merge collected data
